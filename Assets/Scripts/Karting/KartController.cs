@@ -194,84 +194,57 @@ public class KartController : MonoBehaviour
     {
         if (_engine == null) return;
 
-        InitStyles(); 
+        InitStyles();
 
-        float hudWidth = 350;
-        float hudHeight = 260; 
-        float margin = 20;
+        float margin = 20f;
 
-        Rect panelRect = new Rect(Screen.width - hudWidth - margin, Screen.height - hudHeight - margin, hudWidth, hudHeight);
-
-        GUI.color = new Color(0, 0, 0, 0.7f);
-        GUI.DrawTexture(panelRect, _whiteTexture);
-        GUI.color = Color.white;
-
-        GUILayout.BeginArea(panelRect);
-        
-        DrawShadowText(new Rect(10, 5, 300, 30), "RACE TELEMETRY", _headerStyle, Color.white);
-
-        float speedAlongForward = Vector3.Dot(_rb.linearVelocity, transform.forward);
-        float kmh = speedAlongForward * 3.6f;
-        DrawShadowText(new Rect(10, 40, 150, 60), $"{Mathf.Abs(kmh):0}", _valueStyle, Color.cyan);
-        GUI.Label(new Rect(160, 65, 50, 20), "KM/H", _labelStyle);
-
+        float speed = Vector3.Dot(_rb.linearVelocity, transform.forward) * 3.6f;
         float rpm = _engine.CurrentRpm;
         float maxRpm = _engine.MaxRpm;
-        float rpmPercent = Mathf.Clamp01(rpm / maxRpm);
+        float rpm01 = Mathf.Clamp01(rpm / maxRpm);
 
-        Rect rpmBarRect = new Rect(10, 100, 330, 24); 
-        GUI.color = new Color(0.2f, 0.2f, 0.2f, 1f);
-        GUI.DrawTexture(rpmBarRect, _whiteTexture);
+        Rect block = new Rect(margin, margin, 260, 180);
 
-        Rect rpmFillRect = new Rect(10, 100, 330 * rpmPercent, 24);
-        Color rpmColor = Color.Lerp(Color.green, Color.red, rpmPercent);
-        if (rpm > _defaultConfig.maxRpm - 500) rpmColor = new Color(1f, 0.2f, 0f); 
-        GUI.color = rpmColor;
-        GUI.DrawTexture(rpmFillRect, _whiteTexture);
+        GUI.color = new Color(0f, 0f, 0f, 0.55f);
+        GUI.DrawTexture(block, _whiteTexture);
         GUI.color = Color.white;
 
-        DrawShadowText(new Rect(15, 102, 300, 20), $"{rpm:0} RPM", _labelStyle, Color.white);
+        GUILayout.BeginArea(block);
 
-        GUILayout.BeginArea(new Rect(10, 140, 180, 80)); 
+        GUILayout.Label("KART STATUS", _headerStyle);
+
         GUILayout.Space(5);
-        DrawParam("Torque:", $"{_engine.CurrentTorque:0} Nm", _engine.CurrentTorque > 300 ? Color.green : Color.white);
-        DrawParam("Throttle:", $"{_throttleInput:F2}", Color.white);
-        DrawParam("Steer:", $"{_steerInput:F2}", Color.white);
-        GUILayout.EndArea();
 
-        Rect gForceRect = new Rect(220, 140, 80, 80); 
-        GUI.color = new Color(1, 1, 1, 0.1f);
-        GUI.DrawTexture(gForceRect, _whiteTexture);
-        
-        Vector2 center = gForceRect.center;
-        
-        float visualScale = 0.02f;
-        float visFy = _telemetryFrontFySum; 
-        float visFx = _telemetryRearFxSum;
-
-        Vector2 forcePos = center + new Vector2(visFy * visualScale, -visFx * visualScale);
-        forcePos.x = Mathf.Clamp(forcePos.x, gForceRect.x, gForceRect.xMax - 4);
-        forcePos.y = Mathf.Clamp(forcePos.y, gForceRect.y, gForceRect.yMax - 4);
-
-        GUI.color = Color.yellow;
-        GUI.DrawTexture(new Rect(forcePos.x - 2, forcePos.y - 2, 4, 4), _whiteTexture);
-        GUI.color = Color.white;
-        
-        GUI.Label(new Rect(220, 225, 80, 20), "G-FORCE", _labelStyle);
+        GUILayout.Label($"Speed: {Mathf.Abs(speed):0} km/h", _labelStyle);
+        GUILayout.Label($"RPM: {rpm:0}", _labelStyle);
+        GUILayout.Label($"Torque: {_engine.CurrentTorque:0} Nm", _labelStyle);
+        GUILayout.Label($"Throttle: {_throttleInput:F2}", _labelStyle);
+        GUILayout.Label($"Steer: {_steerInput:F2}", _labelStyle);
 
         if (_isHandbrake)
         {
-            Rect hbRect = new Rect(10, 230, 150, 24); 
-            GUI.color = Color.red;
-            GUI.DrawTexture(hbRect, _whiteTexture);
-            GUI.color = Color.white;
-            
-            var centerStyle = new GUIStyle(_labelStyle);
-            centerStyle.alignment = TextAnchor.MiddleCenter;
-            GUI.Label(hbRect, "HANDBRAKE ACTIVE", centerStyle);
+            var red = new GUIStyle(_labelStyle);
+            red.normal.textColor = Color.red;
+            GUILayout.Label("HANDBRAKE", red);
         }
 
         GUILayout.EndArea();
+
+        float radius = 70f;
+        Vector2 center = new Vector2(Screen.width - radius - margin, radius + margin);
+
+        GUI.color = new Color(1, 1, 1, 0.15f);
+        GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2), _whiteTexture);
+
+        float angle = rpm01 * 270f - 135f;
+        float rad = angle * Mathf.Deg2Rad;
+
+        Vector2 needleEnd = center + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * (radius - 8f);
+
+        DrawLine(center, needleEnd, Color.red, 3f);
+
+        GUI.color = Color.white;
+        GUI.Label(new Rect(center.x - 40, center.y - 12, 80, 24), $"{rpm:0}", _labelStyle);
     }
 
     void DrawShadowText(Rect rect, string text, GUIStyle style, Color color)
@@ -334,5 +307,21 @@ public class KartController : MonoBehaviour
             _labelStyle.fontStyle = FontStyle.Bold;
             _labelStyle.normal.textColor = Color.white;
         }
+    }
+    void DrawLine(Vector2 a, Vector2 b, Color color, float width)
+    {
+        Matrix4x4 m = GUI.matrix;
+        Color c = GUI.color;
+
+        GUI.color = color;
+
+        float angle = Vector3.Angle(b - a, Vector2.right);
+        if (a.y > b.y) angle = -angle;
+
+        GUIUtility.RotateAroundPivot(angle, a);
+        GUI.DrawTexture(new Rect(a.x, a.y - width / 2, (b - a).magnitude, width), _whiteTexture);
+
+        GUI.matrix = m;
+        GUI.color = c;
     }
 }
